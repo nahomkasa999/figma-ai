@@ -1,0 +1,13 @@
+{
+  "name": "Cursor for Design",
+  "id": "cursor-for-design",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/index.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["http://localhost:3000","http://localhost:3001", "https://integrate.api.nvidia.com"],
+    "reasoning": "Call LLM proxy server to generate component specs."
+  },
+  "permissions": ["currentuser", "activeusers"]
+}

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cursor for Design</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="root">
+  <div id="tab-bar">
+    <button id="tab-chat" class="tab active">Chat</button>
+    <button id="tab-index" class="tab">Index</button>
+  </div>
+
+  <div id="context-bar">
+    <span class="provider-group">
+      <button id="provider-btn" class="provider-btn">Auto</button>
+    </span>
+    <button id="session-new">New Session</button>
+  </div>
+
+  <div id="view-container">
+    <div id="chat-view">
+      <div id="chat" role="log" aria-live="polite"></div>
+
+      <div id="input-area">
+        <div id="attachment-bar" style="display:none"></div>
+        <div id="autocomplete" class="autocomplete" style="display:none"></div>
+        <div id="input-row">
+          <textarea id="prompt-input" placeholder="Ask me to build anything..." autofocus rows="1"></textarea>
+          <button id="send-btn" class="send-btn">&#8594;</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="index-view" style="display:none"></div>
+  </div>
+</div>
+<script type="module" src="main.ts"></script>
+</body>
+</html>

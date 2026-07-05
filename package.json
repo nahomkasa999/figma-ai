@@ -1,0 +1,22 @@
+{
+  "name": "cursor-for-design",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:code && npm run build:ui",
+    "build:code": "cross-env BUILD_TARGET=code vite build",
+    "build:ui": "cross-env BUILD_TARGET=ui vite build",
+    "watch": "concurrently \"npm:watch:code\" \"npm:watch:ui\"",
+    "watch:code": "cross-env BUILD_TARGET=code vite build --watch",
+    "watch:ui": "cross-env BUILD_TARGET=ui vite build --watch"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.106.0",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "typescript": "^5.9.2",
+    "vite": "^5.4.20",
+    "vite-plugin-singlefile": "^2.0.3"
+  }
+}
