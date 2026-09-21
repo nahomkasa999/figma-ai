@@ -15,7 +15,7 @@ let attachments: SelectionAttachment[] = [];
 let pages: PageEntry[] = [];
 let currentTab: "chat" | "index" = "chat";
 let activeAttachmentId: string | null = null;
-let currentProvider: "auto" | "gemini" | "nvidia" = "auto";
+let currentProvider: "auto" | "gemini" | "openrouter" | "nvidia" = "auto";
 
 const chat = document.getElementById("chat") as HTMLElement;
 const promptInput = document.getElementById("prompt-input") as HTMLTextAreaElement;
@@ -97,10 +97,15 @@ function switchTab(tab: "chat" | "index") {
 sessionNew.addEventListener("click", newSession);
 
 providerBtn.addEventListener("click", () => {
-  const cycle: (typeof currentProvider)[] = ["auto", "gemini", "nvidia"];
+  const cycle: (typeof currentProvider)[] = ["auto", "gemini", "openrouter", "nvidia"];
   const idx = cycle.indexOf(currentProvider);
   currentProvider = cycle[(idx + 1) % cycle.length];
-  const labels: Record<string, string> = { auto: "Auto", gemini: "Gemini", nvidia: "GLM-5.2" };
+  const labels: Record<typeof currentProvider, string> = {
+    auto: "Auto",
+    gemini: "Gemini",
+    openrouter: "OpenRouter (Free)",
+    nvidia: "GLM-5.2",
+  };
   providerBtn.textContent = labels[currentProvider];
   addChatMessage("info", `Switched to **${labels[currentProvider]}** provider.`);
 });
@@ -498,17 +503,19 @@ IMPORTANT RULES:
     if (!data.content) { addChatMessage("error", "LLM returned empty content."); return; }
 
     const cleaned = data.content.replace(/```(?:json)?\n?/g, "").trim();
-    const providerTag = data.provider ? ` [via ${data.provider}${data.model ? `:${data.model}` : ""}]` : "";
+    const fallbackNote = data.fallbackFrom ? ` (fallback from ${data.fallbackFrom})` : "";
+    const providerTag = data.provider ? ` [via ${data.provider}${data.model ? `:${data.model}` : ""}${fallbackNote}]` : "";
     let spec: ComponentSpec;
     try { spec = JSON.parse(cleaned); }
-    catch (e: any) { addChatMessage("error", `Invalid JSON:\n${cleaned.slice(0, 500)}`); return; }
+    catch { addChatMessage("error", `Invalid JSON:\n${cleaned.slice(0, 500)}`); return; }
 
     currentSpec = spec;
     const msgEl = addChatMessage("assistant", (spec.name || "Untitled") + providerTag);
     addPreview(msgEl, spec);
-  } catch (e: any) {
+  } catch (e) {
     thinkingEl.remove();
-    addChatMessage("error", `Proxy error: ${e.message}`);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    addChatMessage("error", `Proxy error: ${errMsg}`);
   }
 }
 

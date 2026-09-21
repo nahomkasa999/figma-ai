@@ -1,83 +1,155 @@
-# AGENTS.md — Cursor for Design
+# AGENTS.md — BeMe (AI-Powered Figma Plugin)
 
 ## Project Overview
-AI-powered Figma plugin that scans a Figma document (variables, components, text styles), sends the catalog + a user prompt to an LLM (via a local proxy with multiple backends), then generates new Figma frames/components from the LLM's JSON response. Includes a **normalizer layer** that classifies design tokens by role and serves an AI-friendly curated spec.
+
+**BeMe** is an AI-powered Figma plugin that scans an active Figma document (design tokens, variables, component anatomy, text styles), presents a curated UI inside Figma, sends context-aware design specs to an LLM via a local proxy, and generates Figma frames/components based on structured JSON responses.
+
+It features:
+- **Design System Normalizer:** Classifies design tokens by semantic role (`background`, `text`, `border`, `accent`, `surface`), deduplicates aliases, infers spacing scales, and computes style fingerprints.
+- **Attachment & Reference System:** Captures user-selected Figma nodes, provides a dual view (FIGMA RAW | AI SPEC), and resolves `@ref` frame anchors.
+- **Multi-Provider LLM Proxy:** Supports Google Gemini (`gemini-flash-latest`), OpenRouter with free models (`openrouter/free`), and NVIDIA (`z-ai/glm-5.2`) with two-way automatic fallback.
+
+---
 
 ## Tech Stack
-- **Language:** TypeScript (ES2020, strict mode), vanilla JS for proxy
-- **Build:** Vite 5 + `vite-plugin-singlefile` (UI inlined to single HTML)
-- **Test/Lint:** None configured
-- **Figma:** `@figma/plugin-typings` v1.106
-- **LLM providers:** Google Gemini (`gemini-flash-latest`) + NVIDIA (`z-ai/glm-5.2`) via local Express proxy, with auto-fallback
-- **Proxy:** Express 4 + CORS, plain JS ESM (NO TypeScript syntax), auto-restart via `node --watch`
+
+- **Runtime & Package Manager:** **Bun** exclusively (`bun install`, `bun run build`, `bun run watch`)
+- **Language:** TypeScript (ES2020, strict mode) for sandbox & UI; vanilla ESM JavaScript for proxy
+- **Build System:** Vite 5 with `vite-plugin-singlefile` (inlines all UI CSS/JS into a single `dist/index.html`)
+- **Figma API:** `@figma/plugin-typings`
+- **Proxy Server:** Express 4 + CORS running via Bun (`proxy/server.js`) on port 3000
+
+---
+
+## Package Manager & Commands
+
+> [!IMPORTANT]
+> Always use **Bun**. Never use `npm`, `yarn`, or `pnpm`.
+
+### Plugin Commands (Root)
+| Command | Action |
+|---------|--------|
+| `bun install` | Install all dependencies |
+| `bun run build` | Full production build (`dist/code.js` + `dist/index.html`) |
+| `bun run build:code` | Build Figma sandbox entry point (`src/code.ts` → `dist/code.js`) |
+| `bun run build:ui` | Build UI into single-file bundle (`src/ui/index.html` → `dist/index.html`) |
+| `bun run watch` | Concurrently watch and rebuild sandbox and UI on change |
+| `bun run proxy` | Start the local LLM proxy server |
+| `bun run proxy:dev` | Start the local LLM proxy server with hot reload (`bun --watch`) |
+
+### Proxy Commands (`proxy/`)
+| Command | Action |
+|---------|--------|
+| `bun install` | Install proxy dependencies |
+| `bun start` | Start proxy server |
+| `bun run dev` | Start proxy server with file watching (`bun --watch server.js`) |
+
+---
+
+## Running in Figma
+
+1. **Build the plugin:**
+   ```bash
+   bun install
+   bun run build
+   ```
+2. **Start the LLM proxy:**
+   ```bash
+   # In a separate terminal
+   cp proxy/.env.example proxy/.env
+   # Add your GEMINI_API_KEY and/or OPENROUTER_API_KEY in proxy/.env
+   bun run proxy:dev
+   ```
+3. **Import into Figma Desktop App:**
+   - Open Figma Desktop.
+   - Go to **Plugins** → **Development** → **Import plugin from manifest...**
+   - Select the `manifest.json` file in this repository root (`/home/nahomkasa/Documents/coding/BeMe/manifest.json`).
+4. **Run BeMe:**
+   - Right-click anywhere on the canvas or press `Shift + I` → **Plugins** → **Development** → **BeMe**.
+
+---
 
 ## Directory Layout
-```
+
+```text
+.
+├── manifest.json            # Figma plugin manifest (ID: 1683843974484325445)
+├── package.json             # Root package config (Bun scripts)
+├── bun.lock                 # Bun lockfile
+├── tsconfig.json            # TypeScript configuration
+├── vite.config.ts           # Dual-target Vite build (sandbox CJS + UI single-file HTML)
+├── dist/                    # Compiled distribution files
+│   ├── code.js              # Compiled Figma sandbox runtime
+│   └── index.html           # Inlined single-file plugin UI
 ├── src/
 │   ├── code.ts              # Figma sandbox entry: scanning + node creation
 │   ├── lib/
-│   │   ├── types.ts         # All TS interfaces (VarEntry, ComponentSpec, ChildSpec, NormalizedCatalog, etc.)
-│   │   ├── scanner.ts       # Document scanner (thin + rich catalog)
-│   │   ├── normalizer.ts    # Token normalizer: role classification, dedup, spacing scale, fingerprint
-│   │   ├── prompts.ts       # LLM prompt builder (normalized path + legacy fallback)
-│   │   ├── retriever.ts     # Relevance retrieval for large catalogs (legacy fallback only)
-│   │   ├── safety.ts        # Operation size classification (direct vs preview)
-│   │   └── validator.ts     # Spec validation
+│   │   ├── types.ts         # All TypeScript interfaces and discriminated unions
+│   │   ├── scanner.ts       # Document scanner (fast thin + rich catalog)
+│   │   ├── normalizer.ts    # Token normalizer: role classification, spacing scale
+│   │   ├── prompts.ts       # LLM prompt builder (normalized path + fallback)
+│   │   ├── retriever.ts     # Relevance retrieval for large catalogs
+│   │   ├── safety.ts        # Operation size checks
+│   │   └── validator.ts     # Component spec validation
 │   └── ui/
-│       ├── index.html       # UI shell (context bar with provider toggle + new session)
-│       ├── main.ts          # Chat UI logic, LLM call, attachment bar, split detail view
+│       ├── index.html       # UI HTML shell
+│       ├── main.ts          # Chat UI logic, proxy calls, attachment management
 │       ├── resolver.ts      # @ref frame reference resolver
-│       └── styles.css       # Dark-theme CSS
-├── proxy/
-│   ├── .env                 # GEMINI_API_KEY + NVIDIA_API_KEY + PORT
-│   ├── server.js            # Express proxy -> Gemini + NVIDIA (plain JS, no TS syntax)
-│   └── package.json
-├── manifest.json            # Figma plugin manifest
-├── vite.config.ts           # Dual-target build (code CJS + UI single-file)
-├── tsconfig.json
-└── package.json
+│       └── styles.css       # Dark-theme UI stylesheet
+└── proxy/
+    ├── .env.example         # Template for GEMINI_API_KEY & NVIDIA_API_KEY
+    ├── package.json         # Proxy package configuration
+    └── server.js            # Express proxy to Gemini & NVIDIA (Bun/Node ESM)
 ```
 
-## Build/Run Commands
-### Plugin (root)
-| Command | Action |
-|---------|--------|
-| `npm run build` | Full production build (code + UI) |
-| `npm run build:code` | Build `src/code.ts` → `dist/code.js` (CJS) |
-| `npm run build:ui` | Build UI → `dist/index.html` (single-file) |
-| `npm run watch` | Watch both code + UI concurrently |
+---
 
-### Proxy (`proxy/`)
-| Command | Action |
-|---------|--------|
-| `npm start` | Start Express server |
-| `npm run dev` | Start with auto-restart (`node --watch`) |
+## Architecture & Hard Boundaries
 
-## Architecture
-- **Message-driven:** Figma sandbox ↔ UI communicate via `postMessage` / `PluginMessage` discriminated union
-- **No framework:** Vanilla TS in both sandbox and UI; direct DOM manipulation
-- **No classes:** Functions + module-level state throughout
-- **Dual catalog:** "Thin" `DsCatalog` (fast) vs "Rich" `RichCatalog` (full anatomy, groups, modes, text styles)
-- **Normalizer layer** (`normalizer.ts`): converts `RichCatalog` → `NormalizedCatalog`; classifies color tokens by role (background/text/border/accent/surface/semantic), dedupes aliases, infers spacing scale, computes style fingerprint
-- **Attachment system:** User-selected Figma nodes are extracted into `SelectionAttachment` with rich `rawDump` (native Figma properties) and displayed as a split view (FIGMA RAW | AI SPEC) — the AI SPEC side is an AI-friendly prompt with creation rules, bound variable IDs, and usage hints
-- **Provider toggle:** UI has an `Auto` button cycling through Auto → Gemini → NVIDIA, passed as `provider` field to the proxy
+1. **Figma Sandbox (`src/code.ts`):**
+   - Runs in the Figma desktop sandbox with direct access to `figma.currentPage`, `figma.variables`, `figma.createRectangle`, etc.
+   - **No DOM access:** Cannot access `window`, `document`, or browser APIs.
+   - Interacts with the UI strictly via `figma.ui.postMessage(msg)` and `figma.ui.onmessage`.
 
-## Coding Conventions
-- **Files:** `kebab-case.ts`
-- **Interfaces:** PascalCase
-- **Functions/Vars:** camelCase
-- **Constants:** UPPER_SNAKE_CASE string union types (no enums)
-- **Error handling:** `try/catch` with `console.error`; many empty `catch {}` blocks
-- **`as any` casts** used for `boundVariables` / `setBoundVariableForPaint` (Figma typings gap)
-- **`isolatedModules: true`** — each file is a standalone module
-- **`proxy/server.js` is plain JS ESM** — NO TypeScript syntax (`: string`, `as const`, `Record<>`, etc.) — Node.js runs it directly
-- **`escapeHtml()` in `main.ts`** used before injecting `rawDump` / `buildAISpec` into innerHTML
-- **`tryGet(() => ...)` wrapper** in `code.ts` safely handles `figma.mixed` without crashing
+2. **Plugin UI (`src/ui/`):**
+   - Runs inside an `<iframe>` with full DOM and browser networking capabilities.
+   - Inlined into `dist/index.html` by `vite-plugin-singlefile`.
+   - **No direct Figma API access:** Must send messages to the sandbox via `parent.postMessage({ pluginMessage: msg }, "*")`.
 
-## Known Issues / Gotchas
-1. **`.env` in proxy/ contains live API keys** — do not commit publicly.
-2. **No `.gitignore`** — `node_modules/` would be tracked if git is initialized.
-3. **`manifest.json`** allows `localhost:3000`, `localhost:3001`, and `nvidia.com` domains.
-4. **`workbench/` dir** is empty (placeholder for future features).
-5. **`renderChildTree` doesn't use `resolvedVars`** for child-level variable names (only top-level attachment uses it from `resolvedVars` map).
-6. **`retriever.ts` is legacy-only** — the normalized path (`buildSystemPrompt` with `NormalizedCatalog`) bypasses it entirely.
+3. **Message Protocol:**
+   - Communication between sandbox and UI uses the strictly-typed `PluginMessage` discriminated union defined in `src/lib/types.ts`.
+   - Any new command or event must be declared in `PluginMessage`.
+
+4. **Local Proxy (`proxy/server.js`):**
+   - Runs locally at `http://localhost:3000`.
+   - Handles LLM requests to Google Gemini and NVIDIA API without exposing API keys inside the Figma plugin.
+   - Manifest explicitly whitelists `http://localhost:3000`, `http://localhost:3001`, and `https://integrate.api.nvidia.com`.
+
+---
+
+## Engineering Rules & Principles
+
+- **Workflow:** For each issue, inspect the code, make the smallest scoped change, verify with `bun run build`, and summarize changes.
+- **Minimal Code:** Write the least amount of code that solves the problem correctly. Delete dead code and unused imports.
+- **Strict TypeScript Typing:**
+  - **NEVER use `any`** — no `any` annotations, no `as any` casts, no implicit `any`. Everything must be explicitly and precisely typed.
+  - **NEVER use `never`** as an escape hatch.
+  - If a Figma typing gap exists (e.g. `boundVariables`), define a dedicated interface in `src/lib/types.ts`.
+  - Always guard against `figma.mixed` using `tryGet` or explicit type checks before reading Figma node properties.
+- **Naming Conventions:**
+  - Files: `kebab-case.ts`
+  - Interfaces/Types: `PascalCase`
+  - Variables/Functions: `camelCase`
+  - Constants/Action Types: `UPPER_SNAKE_CASE`
+- **Security:**
+  - Never commit `.env` or API keys.
+  - Keep `proxy/server.js` clean and dependencies audited.
+
+---
+
+## Verification Checklist
+
+Before finishing any change:
+1. Run `bun run build` and ensure both code and UI compile without errors.
+2. Confirm `dist/code.js` and `dist/index.html` exist and match `manifest.json`.
+3. Verify that `bun.lock` is up-to-date and no `npm` lockfiles exist.

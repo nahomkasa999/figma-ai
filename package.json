@@ -1,15 +1,18 @@
 {
-  "name": "cursor-for-design",
+  "name": "beme",
   "version": "0.1.0",
   "type": "module",
+  "description": "AI-powered Figma plugin for design system automation",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:code && npm run build:ui",
+    "build": "bun run build:code && bun run build:ui",
     "build:code": "cross-env BUILD_TARGET=code vite build",
     "build:ui": "cross-env BUILD_TARGET=ui vite build",
-    "watch": "concurrently \"npm:watch:code\" \"npm:watch:ui\"",
+    "watch": "concurrently \"bun run watch:code\" \"bun run watch:ui\"",
     "watch:code": "cross-env BUILD_TARGET=code vite build --watch",
-    "watch:ui": "cross-env BUILD_TARGET=ui vite build --watch"
+    "watch:ui": "cross-env BUILD_TARGET=ui vite build --watch",
+    "proxy": "bun run --cwd proxy start",
+    "proxy:dev": "bun run --cwd proxy dev"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.106.0",
